@@ -42,12 +42,14 @@ def get_filelist(root_dir: Path) -> list[Path]:
     return filelist
 
 
-def sort_filelist(filelist: list[Path]) -> dict[str, list[Path]]:
+def sort_filelist(filelist: list[Path], original_dir: Path) -> dict[str, list[Path]]:
 
     sorted_filelist: dict[str, list[Path]] = defaultdict(list)
 
     for file in filelist:
-        sorted_filelist[file.parts[1]].append(file)
+        sorted_filelist[file.relative_to(original_dir).parts[0].capitalize()].append(
+            file
+        )
 
     return sorted_filelist
 
@@ -55,7 +57,7 @@ def sort_filelist(filelist: list[Path]) -> dict[str, list[Path]]:
 def get_file_mapping(original_dir: Path, target_dir: Path) -> pd.DataFrame:
     assert original_dir.is_dir()
 
-    files = sort_filelist(get_filelist(original_dir))
+    files = sort_filelist(get_filelist(original_dir), original_dir)
 
     mappings = []
     for type, filenames in files.items():
