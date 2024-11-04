@@ -5,6 +5,24 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python 调试程序: main",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.xlsx",
+        },
+        {
+            "name": "Python 调试程序: model",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "model.xlsx.${fileBasenameNoExtension}"
+        },
+        {
+            "name": "Python 调试程序: xtlsx_helper",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "utils.xlsx_helper"
+        },
+        {
             "name": "Python 调试 remake_datasets",
             "type": "debugpy",
             "request": "launch",
