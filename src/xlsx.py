@@ -54,14 +54,17 @@ def train_epoch(
 
     model.train(True)
 
-    x: torch.FloatTensor
-    y: torch.FloatTensor
-    for i, (x, y) in enumerate(train_loader):
-        x, y = x.to(device, torch.float), y.to(device, torch.float)
+    batch_x: torch.FloatTensor
+    batch_y: torch.FloatTensor
+    for i, (batch_x, batch_y) in enumerate(train_loader):
+        batch_x, batch_y = batch_x.to(device, torch.float), batch_y.to(
+            device, torch.float
+        )
+
         optimizer.zero_grad()
 
-        output = model(x)
-        loss: torch.FloatTensor = loss_func(output, y)
+        output = model(batch_x)
+        loss: torch.FloatTensor = loss_func(output, batch_y)
 
         loss.backward()
         optimizer.step()
@@ -150,7 +153,7 @@ def main():
     x, y = read_excel(xlsx_path, target_col=-1)
     train_data, val_data, test_data = random_split_data(x, y, ratio=[7, 1, 2])
 
-    # Linear 主要问题, 大部分参数集中在第一层了, 层数太浅, representation的性能不好
+    # Linear 主要问题, 大部分参数集中在第一层了, 层数太浅, representation的性能不好, 0.41
     # model = LinearNetwork(
     #     in_features=24, out_features=1, hidden_dim=8, num_layers=1
     # ).to(device)
@@ -161,7 +164,7 @@ def main():
     # 全卷积网络
     # model = FullyConvolutionNetwork(24, 1, hidden_dim=8, num_layers=1).to(device)
 
-    # Residual 添加残差来扩展深度, 性能确实提升很多, 但是不乐观
+    # Residual 添加残差来扩展深度, 性能确实提升很多, 但是不乐观, 0.72
     # model = LinearResidualNetwork(24, 1, hidden_dim=16, num_layers=3).to(device)
 
     # ResidualAttention 在残差的基础上添加了注意力
