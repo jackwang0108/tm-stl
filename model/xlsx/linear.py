@@ -6,8 +6,8 @@ import torch.nn as nn
 class LinearNetwork(nn.Module):
     def __init__(
         self,
-        in_features: int,
-        out_features: int,
+        in_features: int = 24,
+        out_features: int = 1,
         hidden_dim: int = 64,
         num_layers: int = 1,
     ):
@@ -18,7 +18,10 @@ class LinearNetwork(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
 
-        self.in_layer = nn.Linear(in_features, hidden_dim)
+        self.in_layer = nn.Linear(
+            in_features=in_features,
+            out_features=hidden_dim,
+        )
 
         self.hidden_layers = nn.Sequential()
         for i in range(num_layers):
@@ -39,8 +42,13 @@ class LinearNetwork(nn.Module):
 
 if __name__ == "__main__":
 
-    data = torch.randn(32, 16)
-    net = LinearNetwork(16, 1, num_layers=2, hidden_dim=32)
+    # 模拟读取xlsx中的数据
+    data = torch.randn(300, 24)
+
+    # 创建网络, 没有训练的, 参数随机初始化的
+    net = LinearNetwork(in_features=24, out_features=1, num_layers=2, hidden_dim=32)
+
+    prediction = net(data)
 
     print(net)
     print(f"{data.shape=}, {net(data).shape=}")
