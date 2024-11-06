@@ -75,7 +75,7 @@ def get_lineset(size: int = 5, step: int = 1):
 def main(file: Path):
     assert (s := file.suffix.lower()) in [
         ".stl",
-        ".ply",
+        ".pcd",
     ], f"文件不是STL格式(.stl)/点云格式(.ply), {file}"
 
     read_func: Callable = (

@@ -2,6 +2,7 @@
 from pathlib import Path
 from typing import Literal
 from functools import lru_cache
+from argparse import ArgumentParser, Namespace
 
 # Third-Party Library
 import numpy as np
@@ -16,11 +17,51 @@ from matplotlib.cm import ScalarMappable
 
 # My Library
 
+xlsx_path: Path = None
+output_path: Path = None
+
+
+def get_args() -> Namespace:
+    parser = ArgumentParser("对XLSX表格数据进行数据分析")
+    parser.add_argument(
+        "-i",
+        "--ipath",
+        type=str,
+        required=True,
+        help="XLSX表格文件路径",
+    )
+    parser.add_argument(
+        "-o",
+        "--opath",
+        type=str,
+        default=Path(__file__).resolve().parent.parent,
+        help="分析结果输出路径",
+    )
+
+    parser.add_argument(
+        "-t",
+        "--type",
+        type=str,
+        choices=["linkage", "pca", "tsne"],
+        default="linkage",
+        help="进行的数据分析类型",
+    )
+
+    parser.add_argument(
+        "-d",
+        "--dim",
+        type=int,
+        default=2,
+        help="降维可视化的维度数量 (2维或3维), 3维默认无法保存图像",
+    )
+
+    return parser.parse_args()
+
 
 @lru_cache(maxsize=3)
 def read_excel(path: Path) -> np.ndarray:
     assert path.exists(), f"文件不存在, {path=}"
-    return pd.read_excel(path, header=0).to_numpy()
+    return pd.read_excel(path, header=0)
 
 
 def calculate_statistics(data: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
@@ -113,6 +154,7 @@ class XlsxTool:
     ) -> pd.DataFrame:
         # sourcery skip: assign-if-exp, extract-method, switch
         """使用PCA主成分分析进行降维"""
+
         normed_data = self.norm(self.data.copy().to_numpy()[:, :-1], "feature")
         if scope == "feature":
             start, end = 0, -1
@@ -130,8 +172,8 @@ class XlsxTool:
         t = self.data.to_numpy()[:, target_col]
         pca_result["intensity-size"] = (t - t.min()) / (t.max() - t.min()) * 150
         pca_result["intensity-color"] = (t - t.min()) / (t.max() - t.min())
-        # t
 
+        plt.clf()
         if n_components == 2:
             self.plot2d(
                 data=pca_result,
@@ -238,9 +280,9 @@ class XlsxTool:
                 cmap=cmap,
                 norm=norm,
             )
-            ax.set_xlabel("PCA Component 1")
-            ax.set_ylabel("PCA Component 2")
-            ax.set_zlabel("PCA Component 3")
+            ax.set_xlabel("TSNE Component 1")
+            ax.set_ylabel("TSNE Component 2")
+            ax.set_zlabel("TSNE Component 3")
             cbar = plt.colorbar(ScalarMappable(norm=norm, cmap=cmap), ax=ax, pad=0.1)
             cbar.set_label("Intensity Color")
             plt.show()
@@ -249,9 +291,27 @@ class XlsxTool:
 
 
 if __name__ == "__main__":
-    path = Path("./数据集10.25强度.xlsx")
-    toolbox = XlsxTool(path)
 
-    # toolbox.plot_linkage(row_cluster=True)
-    # toolbox.plot_pca(n_components=3)
-    toolbox.plot_tsne(n_components=3)
+    args = get_args()
+
+    xlsx_path = Path(args.ipath)
+    output_path = Path(args.opath)
+
+    assert xlsx_path.exists(), f"文件不存在 {xlsx_path}"
+    output_path.mkdir(exist_ok=True, parents=True)
+
+    toolbox = XlsxTool(xlsx_path)
+
+    dim = int(args.dim)
+    if args.type == "linkage":
+        toolbox.plot_linkage(
+            row_cluster=True, image_path=output_path / "层次聚类分析图.jpg"
+        )
+    elif args.type == "pca":
+        toolbox.plot_pca(
+            n_components=dim, image_path=output_path / "PCA特征降维可视化图.jpg"
+        )
+    elif args.type == "tsne":
+        toolbox.plot_tsne(
+            n_components=dim, image_path=output_path / "TSNE特征降维可视化图.jpg"
+        )
