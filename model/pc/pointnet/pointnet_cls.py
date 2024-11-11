@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.utils.data
 import torch.nn.functional as F
-from pointnet_utils import PointNetEncoder, feature_transform_reguliarzer
+from .pointnet_utils import PointNetEncoder, feature_transform_reguliarzer
 
 
 class get_model(nn.Module):
@@ -35,7 +35,12 @@ class get_loss(torch.nn.Module):
         super(get_loss, self).__init__()
         self.mat_diff_loss_scale = mat_diff_loss_scale
 
-    def forward(self, pred, target, trans_feat):
+    def forward(
+        self,
+        pred: torch.FloatTensor,
+        target: torch.LongTensor,
+        trans_feat: torch.FloatTensor,
+    ):
         # sourcery skip: inline-immediately-returned-variable
         loss = F.nll_loss(pred, target)
         mat_diff_loss = feature_transform_reguliarzer(trans_feat)

@@ -1,13 +1,44 @@
 # Standard Library
+import random
 from pathlib import Path
+from typing import Literal, Any
 
 # Third-Party Library
 import numpy as np
 import open3d as o3d
 
 # Torch Library
+import torch
+from torch.utils.data import Dataset
 
 # My Library
+from .common import make_tupleList
+
+
+def calculate_acc(gt: torch.FloatTensor, pred: torch.FloatTensor) -> float:
+    return ((pred == gt.squeeze()).sum() / gt.shape[0]).item()
+
+
+def get_pointcloud_files(root: Path) -> dict[str, list[Path]]:
+    return {dir.name: list(dir.glob("*.pcd")) for dir in root.iterdir()}
+
+
+def random_split_data(
+    data: list[Any], ratio: list[int | float] = None
+) -> tuple[list[Any], list[Any], list[Any]]:
+
+    if ratio is None:
+        ratio = [7, 1, 2]
+
+    total_length = len(data)
+    split_1 = int(0.7 * total_length)
+    split_2 = int(0.9 * total_length)
+
+    random.shuffle(data)
+
+    train, val, test = data[:split_1], data[split_1:split_2], data[split_2:]
+
+    return train, val, test
 
 
 def read_pointcloud(pc_path: Path, with_color: bool = False) -> np.ndarray:
@@ -39,8 +70,139 @@ def read_pointcloud(pc_path: Path, with_color: bool = False) -> np.ndarray:
     return points
 
 
+def normalize_pointcloud(pc: np.ndarray) -> np.ndarray:
+    """
+    对点云进行归一化
+
+    该函数计算输入点云的质心，将点云中的点围绕该质心中心化，然后进行缩放，使得从质心到任何点的最大距离为1。
+
+    Args:
+        pc (np.ndarray): 一个表示点云的 NumPy 数组，其中每一行对应点云中的一个点。
+
+    Returns:
+        np.ndarray: 归一化后的点云，作为一个 NumPy 数组，已中心化和缩放。
+    """
+    centroid: np.ndarray = pc.mean(axis=0)
+    centered_pc = pc - centroid
+    max_distance = np.sqrt((centered_pc**2).sum(axis=1)).max()
+    return centered_pc / max_distance
+
+
+def farthest_point_sample(pc: np.ndarray, npoint: int) -> np.ndarray:
+    """
+    通过最远采样, 从点云中采样指定数量的点
+
+    该函数从输入的点云中计算一个点的子集，确保每个选定的点都是距离之前选定点最远的。结果是一个包含采样点的新点云。
+
+    Args:
+        point (np.ndarray): 一个表示点云的 NumPy 数组，其中每一行对应一个点。
+        npoint (int): 要从点云中采样的点的数量。
+
+    Returns:
+        np.ndarray: 一个包含来自原始点云的采样点的 NumPy 数组。
+    """
+    num_points = pc.shape[0]
+    xyz = pc[:, :3]
+    selected_points = np.zeros((num_points,))
+    distance = np.ones((num_points,)) * np.inf
+
+    # 刚开始随机选择一个点作为降采样开始的中心
+    curr_point_idx = np.random.randint(0, num_points)
+    for i in range(npoint):
+        selected_points[i] = curr_point_idx
+        centroid = xyz[curr_point_idx, :]
+        dist = ((xyz - centroid) ** 2).sum(axis=-1)
+        mask = dist < distance
+        distance[mask] = dist[mask]
+        curr_point_idx = np.argmax(distance, -1)
+
+    return pc[selected_points.astype(np.int32)]
+
+
+class PointCloudDataset(Dataset):
+
+    def __init__(
+        self,
+        files: dict[str, list[Path]],
+        num_points: int,
+        downsample_policy: Literal["random", "farthest"],
+    ) -> None:
+        super().__init__()
+
+        assert isinstance(files, dict), f"错误的数据类型, 预期dict, 实际{type(files)}"
+        self.file_list = make_tupleList(files)
+        self.cls_mapper = {key: idx for idx, key in enumerate(files.keys())}
+
+        # 采样点的个数
+        self.num_points = num_points
+        self.downsample_policy = downsample_policy
+
+    def __len__(self) -> int:
+        return len(self.file_list)
+
+    def __getitem__(self, index: int) -> tuple[np.ndarray, np.ndarray]:
+
+        pc_path, cls_name = self.file_list[index]
+
+        original_pc = read_pointcloud(pc_path=pc_path)
+
+        # 降采样
+        downsample_points = original_pc
+        if original_pc.shape[0] > self.num_points:
+            if self.downsample_policy == "random":
+                downsample_points = original_pc[
+                    np.random.choice(
+                        original_pc.shape[0], self.num_points, replace=False
+                    )
+                ]
+            elif self.downsample_policy == "farthest":
+                downsample_points = farthest_point_sample(original_pc, self.num_points)
+
+        # 归一化
+        downsample_points[:, :3] = normalize_pointcloud(downsample_points[:, :3])
+
+        # TODO: 法向量? 点成为 [N, 6] 的数据
+
+        return downsample_points, np.array([self.cls_mapper[cls_name]]).astype(np.int32)
+
+
+def collate_fn(
+    batched_data: list[tuple[np.ndarray, np.ndarray]]
+) -> tuple[torch.FloatTensor, torch.FloatTensor]:
+    """将一批数据整理为PyTorch张量。
+
+    该函数接收一个包含特征数组和对应目标值的元组列表，并将它们
+    转换为PyTorch张量。特征被堆叠成一个单一的张量，而目标值也
+    被堆叠并重塑，以确保它们具有正确的维度。
+
+    Args:
+        batched_data (list[tuple[np.ndarray, np.float32]]): 一个元组列表，
+        每个元组包含一个特征数组和一个目标值。
+
+    Returns:
+        tuple[torch.FloatTensor, torch.FloatTensor]: 包含两个PyTorch张量的元组：
+        第一个张量表示堆叠后的特征，第二个张量表示堆叠后的目标值。
+    """
+    batch_x = torch.from_numpy(np.stack([batch[0] for batch in batched_data], axis=0))
+    batch_y = torch.from_numpy(
+        np.stack([batch[1] for batch in batched_data], axis=0)
+    ).squeeze()
+    return batch_x, batch_y
+
+
 if __name__ == "__main__":
-    a = read_pointcloud(
-        Path(__file__).parent.resolve() / "../data/old-sorted-pc/Brock/0.pcd"
+
+    from torch.utils.data import DataLoader
+
+    root_dir = (Path(__file__).resolve().parent.parent / "data/pc").resolve()
+
+    file_dict = get_pointcloud_files(root_dir)
+    pc_datasets = PointCloudDataset(
+        file_dict, num_points=1000, downsample_policy="random"
     )
-    print(a.shape)
+
+    loader = DataLoader(pc_datasets, batch_size=8, shuffle=True, collate_fn=collate_fn)
+
+    for pc, label in loader:
+
+        print(pc.shape, label.shape)

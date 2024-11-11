@@ -36,6 +36,10 @@ def calculate_r2(gt: torch.FloatTensor, pred: torch.FloatTensor) -> float:
     return r2.item()
 
 
+def calculate_acc(gt: torch.FloatTensor, pred: torch.FloatTensor) -> float:
+    return ((pred.argmax(dim=1) == gt.squeeze()).sum() / gt.shape[0]).item()
+
+
 class XlsxDataset(Dataset):
     def __init__(self, x: np.ndarray, y: np.ndarray):
         super().__init__()
