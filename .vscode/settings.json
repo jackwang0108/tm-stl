@@ -4,6 +4,7 @@
         "iden",
         "ipath",
         "opath",
+        "openpyxl",
         "performaces",
         "pointcloud",
         "pointfeat",
