@@ -33,7 +33,6 @@ from model.pc.pointnet.pointnet_cls import (
     get_loss,
     get_model,
 )
-from model.pc.pointnet_regression import RegressionPointNet
 
 set_random_seed(42)
 
