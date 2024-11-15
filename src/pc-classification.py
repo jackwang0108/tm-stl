@@ -81,7 +81,7 @@ def train_epoch(
         optimizer.zero_grad()
 
         label, augmented_points = (
-            label.to(device),
+            label.to(device, dtype=torch.int64),
             augment_pointcloud(points).to(device),
         )
 
@@ -116,7 +116,9 @@ def test_epoch(model: nn.Module, loader: DataLoader, num_class: int = 4):
 
     # sourcery skip: no-loop-in-tests
     for points, label in loader:
-        points, label = points.to(dtype=torch.float32, device=device), label.to(device)
+        points, label = points.to(dtype=torch.float32, device=device), label.to(
+            device, dtype=torch.int64
+        )
 
         points = points.transpose(2, 1)
         pred, _, _ = classifier(points)

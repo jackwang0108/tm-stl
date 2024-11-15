@@ -22,7 +22,7 @@ def calculate_acc(gt: torch.FloatTensor, pred: torch.FloatTensor) -> float:
 
 
 def get_pointcloud_files(root: Path) -> dict[str, list[Path]]:
-    return {dir.name: list(dir.glob("*.pcd")) for dir in root.iterdir()}
+    return {dir.name: list(dir.glob("*.pcd")) for dir in root.iterdir() if dir.is_dir()}
 
 
 def random_split_data(

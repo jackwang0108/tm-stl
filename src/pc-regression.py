@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 
 # Torch Library
+from numpy._core.multiarray import dtype
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -85,7 +86,7 @@ def train_epoch(
         optimizer.zero_grad()
 
         cls_label, reg_label, augmented_points = (
-            cls_label.to(device),
+            cls_label.to(device=device, dtype=torch.int64),
             reg_label.to(device=device, dtype=torch.float32),
             augment_pointcloud(points).to(device),
         )
@@ -129,7 +130,7 @@ def test_epoch(model: get_model, loader: DataLoader, num_class: int = 4):
     # sourcery skip: no-loop-in-tests
     for points, cls_label, reg_label in loader:
         cls_label, reg_label, points = (
-            cls_label.to(device),
+            cls_label.to(device=device, dtype=torch.int64),
             reg_label.to(device=device, dtype=torch.float32),
             points.to(dtype=torch.float32, device=device),
         )
