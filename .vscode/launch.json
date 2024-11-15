@@ -15,7 +15,7 @@
             "name": "Python 调试程序: main",
             "type": "debugpy",
             "request": "launch",
-            "module": "src.xlsx",
+            "module": "src.${fileBasenameNoExtension}",
         },
         {
             "name": "Python 调试程序: model",
@@ -24,10 +24,10 @@
             "module": "model.xlsx.${fileBasenameNoExtension}"
         },
         {
-            "name": "Python 调试程序: xtlsx_helper",
+            "name": "Python 调试程序: utils",
             "type": "debugpy",
             "request": "launch",
-            "module": "utils.xlsx_helper"
+            "module": "utils.${fileBasenameNoExtension}"
         },
         {
             "name": "Python 调试 remake_datasets",

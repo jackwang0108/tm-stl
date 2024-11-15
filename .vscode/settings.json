@@ -1,15 +1,28 @@
 {
     "cSpell.words": [
+        "accs",
+        "catfile",
+        "classacc",
+        "datapath",
+        "dpts",
         "fstn",
         "iden",
         "ipath",
+        "levelname",
+        "meses",
+        "modelnet",
+        "npoint",
+        "npoints",
         "opath",
         "openpyxl",
         "performaces",
         "pointcloud",
         "pointfeat",
         "pointnet",
+        "pointnetv",
         "reguliarzer",
+        "savepath",
+        "timestr",
         "vmax",
         "vmin"
     ]
