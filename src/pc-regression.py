@@ -163,7 +163,7 @@ def test_epoch(model: get_model, loader: DataLoader, num_class: int = 4):
 
 
 def train(
-    model: RegressionPointNet,
+    model: get_model,
     loss_func: nn.Module,
     train_data: dict[str, list[Path]],
     val_data: dict[str, list[Path]],
