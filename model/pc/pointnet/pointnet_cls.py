@@ -15,7 +15,8 @@ class get_model(nn.Module):
 
         self.fc1 = nn.Linear(1024, 512)
         self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, k)
+        self.fc3_1 = nn.Linear(256, k)
+        self.fc3_2 = nn.Linear(256, 1)
         self.dropout = nn.Dropout(p=0.4)
         self.bn1 = nn.BatchNorm1d(512)
         self.bn2 = nn.BatchNorm1d(256)
@@ -25,9 +26,10 @@ class get_model(nn.Module):
         x, trans, trans_feat = self.feat(x)
         x = F.relu(self.bn1(self.fc1(x)))
         x = F.relu(self.bn2(self.dropout(self.fc2(x))))
-        x = self.fc3(x)
-        x = F.log_softmax(x, dim=1)
-        return x, trans_feat
+        x_cls = self.fc3_1(x)
+        x_reg = self.fc3_2(x)
+        x_cls = F.log_softmax(x_cls, dim=1)
+        return x_cls, x_reg, trans_feat
 
 
 class get_loss(torch.nn.Module):

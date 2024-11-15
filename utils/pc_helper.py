@@ -1,10 +1,12 @@
 # Standard Library
 import random
 from pathlib import Path
-from typing import Literal, Any
+from collections import defaultdict
+from typing import Literal, Any, Optional
 
 # Third-Party Library
 import numpy as np
+import pandas as pd
 import open3d as o3d
 
 # Torch Library
@@ -126,6 +128,7 @@ class PointCloudDataset(Dataset):
         files: dict[str, list[Path]],
         num_points: int,
         downsample_policy: Literal["random", "farthest"],
+        xlsx_path: Optional[Path] = None,
     ) -> None:
         super().__init__()
 
@@ -136,6 +139,20 @@ class PointCloudDataset(Dataset):
         # 采样点的个数
         self.num_points = num_points
         self.downsample_policy = downsample_policy
+
+        # 强度数据
+        assert xlsx_path is None or (
+            isinstance(xlsx_path, Path) and xlsx_path.exists()
+        ), f"{xlsx_path} 不存在"
+
+        self.xlsx_data, self.file_idx_mapper = None, None
+        if xlsx_path is not None:
+            self.xlsx_data: pd.DataFrame = pd.read_excel(xlsx_path, index_col=0)
+            self.file_idx_mapper: dict[str, dict[int, int]] = {}
+            self.file_idx_mapper = defaultdict(dict)
+            for idx, file in enumerate(self.xlsx_data.loc[:, "目标文件"]):
+                file = Path(file)
+                self.file_idx_mapper[file.parts[-2]][file.stem] = idx
 
     def __len__(self) -> int:
         return len(self.file_list)
@@ -161,9 +178,17 @@ class PointCloudDataset(Dataset):
         # 归一化
         downsample_points[:, :3] = normalize_pointcloud(downsample_points[:, :3])
 
-        # TODO: 法向量? 点成为 [N, 6] 的数据
+        if self.xlsx_data is None:
+            return downsample_points, np.array([self.cls_mapper[cls_name]]).astype(
+                np.int32
+            )
 
-        return downsample_points, np.array([self.cls_mapper[cls_name]]).astype(np.int32)
+        example_idx = self.file_idx_mapper[pc_path.parts[-2]][pc_path.stem]
+        return (
+            downsample_points,
+            np.array([self.cls_mapper[cls_name]]).astype(np.int32),
+            np.array(self.xlsx_data.loc[example_idx, "强度（MPA)"]),
+        )
 
 
 def collate_fn(
@@ -183,26 +208,39 @@ def collate_fn(
         tuple[torch.FloatTensor, torch.FloatTensor]: 包含两个PyTorch张量的元组：
         第一个张量表示堆叠后的特征，第二个张量表示堆叠后的目标值。
     """
+
     batch_x = torch.from_numpy(np.stack([batch[0] for batch in batched_data], axis=0))
-    batch_y = torch.from_numpy(
+    batch_cls = torch.from_numpy(
         np.stack([batch[1] for batch in batched_data], axis=0)
     ).squeeze()
-    return batch_x, batch_y
+
+    if len(batched_data[0]) <= 2:
+        return batch_x, batch_cls
+
+    batch_reg = torch.from_numpy(
+        np.stack([batch[2] for batch in batched_data], axis=0)
+    ).squeeze()
+
+    return batch_x, batch_cls, batch_reg
 
 
 if __name__ == "__main__":
 
     from torch.utils.data import DataLoader
 
-    root_dir = (Path(__file__).resolve().parent.parent / "data/pc").resolve()
+    root_dir = (Path(__file__).resolve().parent.parent / "data/new-pc").resolve()
 
     file_dict = get_pointcloud_files(root_dir)
     pc_datasets = PointCloudDataset(
-        file_dict, num_points=1000, downsample_policy="random"
+        file_dict,
+        num_points=1000,
+        downsample_policy="random",
+        xlsx_path=Path(__file__).resolve().parent
+        / "../data/new-pc/分类-强度数据集.xlsx",
     )
 
     loader = DataLoader(pc_datasets, batch_size=8, shuffle=True, collate_fn=collate_fn)
 
-    for pc, label in loader:
+    for pc, cls, reg in loader:
 
-        print(pc.shape, label.shape)
+        print(pc.shape, cls.shape, reg.shape)
