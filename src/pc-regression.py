@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 
 # Torch Library
-from numpy._core.multiarray import dtype
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
